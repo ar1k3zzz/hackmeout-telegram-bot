@@ -8,7 +8,7 @@ const kb = require('./keyboard-buttons')
 
 console.log("Bot has been started")
 
-var current_page = 'start', current_message = 'none', telegramid = ''
+var current_page = 'start', current_message = 'none', phonenumber = ''
 
 const emoji_num = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','1️⃣0️⃣']
 
@@ -41,7 +41,14 @@ function closeMySqlDB() {
 const bot = new TelegramBot(config.TOKEN, {polling: true})
 
 
-bot.on('message', msg => {
+bot.setMyCommands([
+	{command: '/start', description: 'Начальное приветсвие'},
+	{command: '/menu', description: 'Главное меню'}
+])
+
+bot.on('message', async msg => {
+
+	console.log(msg.text)
 
 	const text = msg.text;
 	const chatId = msg.chat.id;
@@ -51,38 +58,40 @@ bot.on('message', msg => {
 		current_message = 'none'
 		telegramid = msg.from.id
 
-		const text = `Доброго времени суток! 👋\nДля начала пожалуйста нажмите кнопку "Поделиться 📱"`
+		let text = `Доброго времени суток! 👋\nДля начала пожалуйста нажмите кнопку "Поделиться 📱"`
 
 		var option = {
-	        parse_mode: 'Markdown',
-	        reply_markup: {
-	            one_time_keyboard: true,
-	            keyboard: [[{
+	        "parse_mode": "Markdown",
+	        "reply_markup": {
+	            "one_time_keyboard": true,
+	            "keyboard": [[{
 	                text: "Поделиться 📱",
 	                request_contact: true
 	            }]],
-	            resize_keyboard: true
+	            "resize_keyboard": true
 	        }
     	};
 
-		bot.sendMessage(msg.chat.id, text, option).then(()=>{
-				bot.on("contact", (msg)=>{
-					const text = "Здравствуйте, *${msg.from.first_name}*.\nЯ Вам помогу:\n1. Связаться с Техноконсультантом\n2. Проверить доступный баланс TechnoBonus."
-					bot.sendMessage(msg.chat.id, text,{
-						reply_markup: {
-							keyboard: [
-								[
-								kb.mainMenu.o1,
-								kb.mainMenu.o2
-								]
-							]
-						}
-					}, parse_mode = 'Markdown')
+		await bot.sendMessage(chatId, text, option).then(()=>{
+				bot.once("contact", (msg)=>{
+					phonenumber = msg.contact.phone_number
+
+					let text = `Здравствуйте, *${msg.contact.first_name}*.\n\nЯ Вам помогу:\n\n1. Связаться с Техноконсультантом\n\n2. Проверить доступный баланс TechnoBonus.`
+					var option = {
+						"parse_mode": 'Markdown',
+						"reply_markup": {
+							one_time_keyboard: true,
+							keyboard: keyboard.mainMenu,
+						},
+						"resize_keyboard": true
+					};
+					bot.sendMessage(msg.chat.id, text, option)
 				})
 			})
-	} else if(text === ''){
+	}
+	if(text === '/menu'){
 		current_page = 'mainMenu'
-		bot.sendMessage(chatId, `Вы выбрали "Русский язык 🇷🇺"`, {
+		await bot.sendMessage(chatId, `Вы выбрали "Русский язык 🇷🇺"`, {
 			reply_markup: JSON.stringify({
 		        hide_keyboard: true
 		    })
@@ -126,20 +135,16 @@ bot.on('message', msg => {
 
 				closeMySqlDB()
 			})
-	} else {
-		let text
-		switch (current_page) {
-			case 'start':
-				text = `Здравствуйте, *${msg.from.first_name}*.\nДля того чтобы начать общение с ботом напишите команду /start или нажмите на нее.`
-				break
-			case 'mainMenu':
-				text = `Возможно вы ошиблись с запросом. Если требуется помощь напишите на /help.`
-				break
-			default :
-				text = `Возможно вы ошиблись с запросом. Если требуется помощь напишите на /help.`
-				break
-		}
-		bot.sendMessage(chatId, text, parse_mode = 'Markdown')
+	}
+
+	if(text !== '/menu' && text !== '/start'){
+		return bot.sendMessage(chatId, 'Пожалуйста выберите команду!',{
+			reply_markup: {
+				one_time_keyboard: true,
+				keyboard: keyboard.mainMenu
+			},
+			resize_keyboard: true
+		})
 	}
 })
 
